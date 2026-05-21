@@ -2,7 +2,6 @@
 import { useState, useEffect, useCallback, createContext, useContext } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import ParticleCanvas from './ParticleCanvas'
 import { api } from '@/lib/client'
 
 const AppCtx = createContext(null)
@@ -37,9 +36,6 @@ export default function Shell({ children }) {
   return (
     <AppCtx.Provider value={{ chip, chips, branch, setBranch, loadChips }}>
       <div className="shell">
-        <ParticleCanvas />
-
-        {/* ── Sidebar ── */}
         <aside className="sidebar">
           <div className="sb-logo">
             <div className="sb-icon">⬡</div>
