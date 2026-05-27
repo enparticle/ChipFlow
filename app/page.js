@@ -17,7 +17,7 @@ function Field({ label, id, value, onChange, step = '0.1', min, max, style }) {
 }
 
 export default function ExperimentPage() {
-  const { chip, branch } = useApp()
+  const { chip, device, lot, branch } = useApp()
   const lb = BRANCH[branch]
 
   const [p1, setP1]       = useState('223')
@@ -51,6 +51,8 @@ export default function ExperimentPage() {
     try {
       const base = {
         chip_id: chip.chip_id, branch,
+        device_id: device?.device_id,
+        lot_id:    lot?.lot_id,
         p1: +p1, p2: +p2, p3: 0,
         duration: +dur, temp_device: +tempD,
         m1_loading: +m1, m2_loading: +m2,
@@ -94,6 +96,8 @@ export default function ExperimentPage() {
       const av2 = calcVol(+m2, +m2f, lb.d2)
       const payload = {
         chip_id: chip.chip_id,
+        device_id: device?.device_id,
+        lot_id: lot?.lot_id,
         timestamp: new Date().toISOString(),
         p1_set: +p1, p2_set: +p2, p3_set: 0, duration: d,
         temp_device: +tempD, temp_ambient: +tempA,
