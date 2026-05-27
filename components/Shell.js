@@ -12,6 +12,7 @@ const NAV = [
   { href: '/inverse',      icon: 'ti-arrows-exchange',        label: '역해석' },
   { href: '/calibration',  icon: 'ti-adjustments-horizontal', label: '보정' },
   { href: '/landscape',    icon: 'ti-chart-bubble',           label: '3D 분석' },
+  { href: '/manage',       icon: 'ti-settings',               label: '관리' },
 ]
 
 function Dropdown({ label, items, selected, onSelect, idKey, nameKey }) {
