@@ -74,6 +74,10 @@ export default function ExperimentPage() {
         brR: r0.branch || branch,
         mode: r0.hybrid_mode || '—',
         band: r0.pressure_band || '—',
+        condition: r0.condition_type || '-',
+        targetTolerance: r0.target_tolerance_uL ?? null,
+        calibration_applied: !!r0.calibration_applied,
+        calibration_offset: r0.calibration_offset || null,
         v1: r0.v1, v2: r0.v2, v3: r0.v3,
         ps: r0.params_snapshot,
       })
@@ -177,6 +181,7 @@ export default function ExperimentPage() {
                 <span className="badge badge-cyan">{pred.brR}</span>
                 <span className="badge badge-gray">{pred.mode}</span>
                 <span className="badge badge-gray">{pred.band}</span>
+                {pred.condition && <span className="badge badge-gray">{pred.condition}</span>}
               </div>
             )}
           </div>
@@ -199,6 +204,69 @@ export default function ExperimentPage() {
               })}
             </div>
           </div>
+          {pred && (
+            <div className="q-section" style={{ marginTop: 12 }}>
+              <div className="sub-label">Calibration</div>
+
+              {pred.calibration_applied && pred.calibration_offset ? (
+                <div style={{
+                  border: '1px solid rgba(34, 197, 94, 0.35)',
+                  background: 'rgba(34, 197, 94, 0.08)',
+                  borderRadius: 12,
+                  padding: 12,
+                  display: 'grid',
+                  gap: 8
+                }}>
+                  <div className="meta-row" style={{ flexWrap: 'wrap', gap: 8 }}>
+                    <span className="badge badge-cyan">Calibration 적용됨</span>
+                    <span className="badge badge-gray">ID {pred.calibration_offset.id}</span>
+                    <span className="badge badge-gray">{pred.calibration_offset.scope_type}</span>
+                  </div>
+
+                  <div style={{ fontSize: 13, color: 'var(--t2)' }}>
+                    조건: <b>{pred.calibration_offset.condition_key}</b>
+                  </div>
+
+                  <div className="q-row">
+                    <div className="q-item">
+                      <div className="q-label">T1 offset</div>
+                      <div className="q-val">
+                        {`${pred.calibration_offset.t1_offset_uL >= 0 ? '+' : ''}${(+pred.calibration_offset.t1_offset_uL).toFixed(1)} µL`}
+                      </div>
+                    </div>
+
+                    <div className="q-item">
+                      <div className="q-label">T2 offset</div>
+                      <div className="q-val">
+                        {`${pred.calibration_offset.t2_offset_uL >= 0 ? '+' : ''}${(+pred.calibration_offset.t2_offset_uL).toFixed(1)} µL`}
+                      </div>
+                    </div>
+
+                    <div className="q-item">
+                      <div className="q-label">Samples</div>
+                      <div className="q-val">
+                        {pred.calibration_offset.n_used ?? '-'} / {pred.calibration_offset.n_samples ?? '-'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{
+                  border: '1px solid var(--b1)',
+                  background: 'rgba(148, 163, 184, 0.08)',
+                  borderRadius: 12,
+                  padding: 12,
+                  color: 'var(--t2)',
+                  fontSize: 13
+                }}>
+                  <div className="meta-row" style={{ marginBottom: 6 }}>
+                    <span className="badge badge-gray">Calibration 미적용</span>
+                  </div>
+                  이 조건에는 승인된 보정값이 없습니다. 기본 v8 예측값을 표시합니다.
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {pred && (
