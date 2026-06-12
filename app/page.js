@@ -40,9 +40,35 @@ export default function ExperimentPage() {
 
   const cmp = (() => {
     if (!pred || !m1f || !m2f) return null
+
     const av1 = calcVol(+m1, +m1f, lb.d1)
     const av2 = calcVol(+m2, +m2f, lb.d2)
-    return { av1, av2, avt: av1 + av2, d1: av1 - pred.fv1, d2: av2 - pred.fv2, dt: (av1 + av2) - pred.ft }
+    const avt = av1 + av2
+
+    const co = pred.calibration_offset || null
+    const off1 = pred.calibration_applied && co ? +(co.t1_offset_uL || 0) : 0
+    const off2 = pred.calibration_applied && co ? +(co.t2_offset_uL || 0) : 0
+
+    const rawFv1 = pred.fv1 - off1
+    const rawFv2 = pred.fv2 - off2
+    const rawFt = rawFv1 + rawFv2
+
+    return {
+      av1, av2, avt,
+
+      // calibrated error: actual - displayed calibrated prediction
+      d1: av1 - pred.fv1,
+      d2: av2 - pred.fv2,
+      dt: avt - pred.ft,
+
+      // raw model error before approved calibration offset
+      rawFv1,
+      rawFv2,
+      rawFt,
+      rawD1: av1 - rawFv1,
+      rawD2: av2 - rawFv2,
+      rawDt: avt - rawFt,
+    }
   })()
 
   async function runPredict() {
@@ -282,14 +308,19 @@ export default function ExperimentPage() {
             </div>
             <div className="cmp-grid">
               {[
-                { head: lb.c1, act: cmp?.av1, prd: pred.fv1, d: cmp?.d1 },
-                { head: lb.c2, act: cmp?.av2, prd: pred.fv2, d: cmp?.d2 },
-                { head: 'Total', act: cmp?.avt, prd: pred.ft, d: cmp?.dt },
-              ].map(({ head, act, prd, d }) => (
+                { head: lb.c1, act: cmp?.av1, prd: pred.fv1, d: cmp?.d1, rawPrd: cmp?.rawFv1, rawD: cmp?.rawD1 },
+                { head: lb.c2, act: cmp?.av2, prd: pred.fv2, d: cmp?.d2, rawPrd: cmp?.rawFv2, rawD: cmp?.rawD2 },
+                { head: 'Total', act: cmp?.avt, prd: pred.ft, d: cmp?.dt, rawPrd: cmp?.rawFt, rawD: cmp?.rawDt },
+              ].map(({ head, act, prd, d, rawPrd, rawD }) => (
                 <div className="cmp-item" key={head}>
                   <div className="cmp-head">{head}</div>
                   <div><span className="cmp-act">{act != null ? act.toFixed(1) : '—'}</span><span className="cmp-unit"> µL</span></div>
                   <div className="cmp-pred">예측 {prd.toFixed(1)} µL</div>
+                  {pred?.calibration_applied && rawPrd != null && rawD != null && (
+                    <div className="cmp-pred" style={{ opacity: 0.72, marginTop: 4 }}>
+                      Raw {rawPrd.toFixed(1)} µL / raw Δ {`${rawD >= 0 ? '+' : ''}${rawD.toFixed(1)} µL`}
+                    </div>
+                  )}
                   <div className={`cmp-delta ${d == null ? 'd-em' : Math.abs(d) < 50 ? 'd-ok' : 'd-bad'}`}>
                     {d != null ? `${d >= 0 ? '+' : ''}${d.toFixed(1)} µL` : '실측 대기'}
                   </div>
