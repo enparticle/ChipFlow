@@ -117,10 +117,93 @@ export default function ExperimentPage() {
     }
   }
 
+  function validateSaveBeforeSubmit() {
+    const issues = []
+    const warnings = []
+
+    const m1i = Number(m1)
+    const m2i = Number(m2)
+    const m3i = Number(tare)
+    const m1Final = Number(m1f)
+    const m2Final = Number(m2f)
+    const m3Final = Number(m3f)
+    const d = Number(dur)
+
+    if (!pred) issues.push('Prediction is required before saving.')
+    if (!chip) issues.push('Chip/Lot selection is required.')
+    if (!branch) issues.push('Branch selection is required.')
+    if (!Number.isFinite(Number(p1)) || !Number.isFinite(Number(p2))) issues.push('P1/P2 must be valid numbers.')
+    if (!Number.isFinite(d) || d <= 0) issues.push('Duration must be greater than 0.')
+
+    if (m1f === '' || m2f === '') issues.push('M1 final and M2 final are required.')
+    if (!Number.isFinite(m1i) || !Number.isFinite(m2i)) issues.push('M1/M2 loading values must be valid numbers.')
+    if (!Number.isFinite(m1Final) || !Number.isFinite(m2Final)) issues.push('M1/M2 final values must be valid numbers.')
+
+    if (Number.isFinite(m1i) && Number.isFinite(m1Final) && m1Final >= m1i) {
+      issues.push('M1 final must be smaller than M1 loading.')
+    }
+    if (Number.isFinite(m2i) && Number.isFinite(m2Final) && m2Final >= m2i) {
+      issues.push('M2 final must be smaller than M2 loading.')
+    }
+
+    let av1 = null
+    let av2 = null
+    let avt = null
+
+    if (issues.length === 0) {
+      av1 = calcVol(m1i, m1Final, lb.d1)
+      av2 = calcVol(m2i, m2Final, lb.d2)
+      avt = av1 + av2
+
+      if (av1 <= 0) issues.push('T1 actual volume must be greater than 0.')
+      if (av2 <= 0) issues.push('T2 actual volume must be greater than 0.')
+
+      const m1Drop = m1i - m1Final
+      const m2Drop = m2i - m2Final
+      const looksLikeDummy = Math.abs(m1Drop - 0.1) < 0.00005 && Math.abs(m2Drop - 0.1) < 0.00005
+
+      if (looksLikeDummy) {
+        issues.push('This looks like a dummy/test input: both M1 and M2 decreased by exactly 0.1000 g.')
+      }
+
+      if (av1 < 300 || av2 < 300) {
+        warnings.push('Actual T1/T2 volume is below 300 uL. Please confirm this is a real experiment, not a UI test.')
+      }
+
+      if (pred?.ft && avt < pred.ft * 0.3) {
+        warnings.push('Actual total volume is less than 30% of predicted total. Please review before saving.')
+      }
+
+      if (Number.isFinite(m3i) && Number.isFinite(m3Final) && m3Final <= m3i) {
+        warnings.push('M3 final is not greater than M3 loading/tare. Please review M3 values.')
+      }
+    }
+
+    return {
+      ok: issues.length === 0,
+      issues,
+      warnings,
+      actualVolume1_uL: av1,
+      actualVolume2_uL: av2,
+      actualTotal_uL: avt,
+      quality_flag: warnings.length ? 'review' : 'ok',
+      quality_notes: warnings.join(' | '),
+    }
+  }
   async function handleSave() {
     if (!pred || !chip) return
     setSaving(true)
     try {
+      const quality = validateSaveBeforeSubmit()
+      if (!quality.ok) {
+        alert('Cannot save this run:\n\n' + quality.issues.join('\n'))
+        return
+      }
+      if (quality.warnings.length) {
+        const proceed = window.confirm('Please review before saving:\n\n' + quality.warnings.join('\n') + '\n\nContinue saving as REVIEW?')
+        if (!proceed) return
+      }
+
       const ps = pred.ps || chip, d = +dur
       const av1 = calcVol(+m1, +m1f, lb.d1)
       const av2 = calcVol(+m2, +m2f, lb.d2)
@@ -144,6 +227,10 @@ export default function ExperimentPage() {
         final_volume1_uL: pred.fv1, final_volume2_uL: pred.fv2, final_total_uL: pred.ft,
         act_volume1_uL: av1, act_volume2_uL: av2,
         fluid1: lb.T1, fluid2: lb.T2,
+        run_valid: 1,
+        run_type: 'normal',
+        quality_flag: quality.quality_flag,
+        quality_notes: quality.quality_notes,
       }
       // 백엔드 SQLite + Supabase 동시 저장
       await Promise.all([
