@@ -10,16 +10,17 @@ const AppCtx = createContext(null)
 export const useApp = () => useContext(AppCtx)
 
 const NAV = [
-  { href: '/', icon: '◉', label: '실험 예측·기록', subtitle: '일반 사용자' },
-  { href: '/inverse', icon: '↔', label: '목표 유량으로 압력 찾기' },
+  { href: '/', icon: '◎', label: '목표 유량 → 압력', subtitle: '주요 기능' },
+  { href: '/experiment', icon: '◉', label: '압력 → 유량·실험 기록' },
   { href: '/landscape', icon: '⌁', label: '유량 지도' },
   { href: '/calibration', icon: '⚙', label: '보정 관리', admin: true },
   { href: '/manage', icon: '▣', label: '장비·로트 관리', admin: true },
 ]
 
 const PAGE_COPY = {
-  '/': ['실험 예측·기록', '실험 조건을 입력하고 결과를 안전하게 저장합니다.'],
-  '/inverse': ['목표 유량으로 압력 찾기', '원하는 유량에 맞는 압력 조건을 계산합니다.'],
+  '/': ['목표 유량으로 압력 계산', '원하는 유량과 시간에 맞는 P1·P2 압력을 계산합니다.'],
+  '/inverse': ['목표 유량으로 압력 계산', '원하는 유량과 시간에 맞는 P1·P2 압력을 계산합니다.'],
+  '/experiment': ['압력으로 유량 예측·실험 기록', '압력을 입력해 예상 유량을 확인하고 실측 결과를 저장합니다.'],
   '/landscape': ['유량 지도', '압력 조건에 따른 유량 변화를 확인합니다.'],
   '/calibration': ['보정 관리', '승인된 보정값과 적용 대기 후보를 관리합니다.'],
   '/manage': ['장비·로트 관리', '실험에 사용할 장비와 카트리지 로트를 관리합니다.'],
@@ -112,7 +113,7 @@ export default function Shell({ children }) {
   } : null
 
   const [pageTitle, pageSubtitle] = PAGE_COPY[pathname] || ['enCELL Master', '미세유체 실험 지원 시스템']
-  const showTopDirection = pathname === '/inverse'
+  const showTopDirection = false
 
   return (
     <AppCtx.Provider value={{
