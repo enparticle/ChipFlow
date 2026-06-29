@@ -171,6 +171,7 @@ export default function InverseSetupPage() {
         tq1: Number(target1),
         tq2: Number(target2),
         p_max: Number(maxPressure),
+        tolerance: 0.1,
       })
 
       if (inverse.status && inverse.status !== 'success') {
@@ -201,7 +202,7 @@ export default function InverseSetupPage() {
         document.getElementById('inverse-result')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }, 50)
     } catch (err) {
-      setError('필요 압력을 계산하지 못했습니다. 입력값과 백엔드 연결을 확인하세요.\n' + err.message)
+      setError('압력 계산 중 오류가 발생했습니다. 백엔드 연결 또는 입력값을 확인하세요.\n' + err.message)
     } finally {
       setLoading(false)
     }
@@ -229,7 +230,7 @@ export default function InverseSetupPage() {
     }
   }
 
-  const targetTolerance = Math.max(0.05, Math.max(Number(target1), Number(target2)) * 0.03)
+  const targetTolerance = result?.tolerance_mL_min ?? Math.max(0.1, Math.max(Number(target1), Number(target2)) * 0.03)
   const maxFlowError = result
     ? Math.max(Math.abs(result.q1 - Number(target1)), Math.abs(result.q2 - Number(target2)))
     : null
