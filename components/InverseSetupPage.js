@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '@/components/Shell'
+import DeviceCorrectionPreview from '@/components/DeviceCorrectionPreview'
 import { api } from '@/lib/client'
 import { BRANCH } from '@/lib/constants'
 
@@ -159,8 +160,10 @@ export default function InverseSetupPage() {
         chip_id: chip.chip_id,
         device_id: device.device_id,
         lot_id: lot.lot_id,
+        cartridge_lot_id: lot.lot_id,
         branch,
         duration: Number(duration),
+        duration_sec: Number(duration),
         temp_device: Number(temperature),
         m1_loading: Number(mass1),
         m2_loading: Number(mass2),
@@ -411,6 +414,12 @@ export default function InverseSetupPage() {
               </tbody>
             </table>
           </div>
+
+          <DeviceCorrectionPreview
+            preview={result.device_correction_preview}
+            rawQ1={result.q1}
+            rawQ2={result.q2}
+          />
 
           <div className="inverse-volume-summary">
             <div><span>예상 총 토출량</span><strong>{(Number(result.final_total_uL) / 1000).toFixed(3)} mL</strong></div>

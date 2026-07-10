@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '@/components/Shell'
 import KpiCard from '@/components/KpiCard'
+import DeviceCorrectionPreview from '@/components/DeviceCorrectionPreview'
 import { api, saveLog } from '@/lib/client'
 import { BRANCH, D, calcVol, calcFlow } from '@/lib/constants'
 
@@ -94,6 +95,60 @@ function formatML(valueUL, digits = 4) {
 function formatUL(valueUL, digits = 1) {
   if (valueUL == null || !Number.isFinite(Number(valueUL))) return '—'
   return Number(valueUL).toFixed(digits)
+}
+
+function finiteNumber(value) {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
+function averageNumber(a, b) {
+  const aa = finiteNumber(a)
+  const bb = finiteNumber(b)
+  if (aa != null && bb != null) return (aa + bb) / 2
+  return aa ?? bb ?? null
+}
+
+function firstDefined(...items) {
+  return items.find(item => item !== undefined && item !== null)
+}
+
+function correctionValue(preview, channel) {
+  const direct = finiteNumber(preview?.[`${channel}_correction`])
+  if (direct != null) return direct
+  return finiteNumber(preview?.[`${channel}_correction`]?.correction_mL_min)
+}
+
+function candidateValue(preview, channel) {
+  return preview?.[`${channel}_candidate`] || (
+    typeof preview?.[`${channel}_correction`] === 'object'
+      ? preview?.[`${channel}_correction`]
+      : null
+  ) || null
+}
+
+function buildAveragedDevicePreview(startPreview, endPreview, q1RawAvg, q2RawAvg) {
+  const base = startPreview?.available ? startPreview : endPreview?.available ? endPreview : null
+  if (!base) return null
+
+  const q1Correction = firstDefined(correctionValue(startPreview, 'q1'), correctionValue(endPreview, 'q1'))
+  const q2Correction = firstDefined(correctionValue(startPreview, 'q2'), correctionValue(endPreview, 'q2'))
+
+  const q1PreviewAvg = averageNumber(startPreview?.q1_preview, endPreview?.q1_preview)
+  const q2PreviewAvg = averageNumber(startPreview?.q2_preview, endPreview?.q2_preview)
+
+  return {
+    ...base,
+    available: true,
+    applied: false,
+    apply_to_predict: false,
+    q1_candidate: firstDefined(candidateValue(startPreview, 'q1'), candidateValue(endPreview, 'q1')),
+    q2_candidate: firstDefined(candidateValue(startPreview, 'q2'), candidateValue(endPreview, 'q2')),
+    q1_correction: q1Correction,
+    q2_correction: q2Correction,
+    q1_preview: q1PreviewAvg ?? (q1Correction != null ? q1RawAvg + q1Correction : null),
+    q2_preview: q2PreviewAvg ?? (q2Correction != null ? q2RawAvg + q2Correction : null),
+  }
 }
 
 export default function ExperimentPage() {
@@ -326,10 +381,12 @@ export default function ExperimentPage() {
         branch,
         device_id: device?.device_id,
         lot_id: lot?.lot_id,
+        cartridge_lot_id: lot?.lot_id,
         p1: +p1,
         p2: +p2,
         p3: 0,
         duration: +dur,
+        duration_sec: +dur,
         temp_device: +tempD,
         m1_loading: +m1,
         m2_loading: +m2,
@@ -348,6 +405,12 @@ export default function ExperimentPage() {
       const fv1 = r0.final_volume1_uL ?? q1 * lb.d1 * duration / 60 * 1000
       const fv2 = r0.final_volume2_uL ?? q2 * lb.d2 * duration / 60 * 1000
       const ft = r0.final_total_uL ?? fv1 + fv2
+      const deviceCorrectionPreview = buildAveragedDevicePreview(
+        r0.device_correction_preview,
+        r1.device_correction_preview,
+        q1,
+        q2,
+      )
 
       setPred({
         q1,
@@ -364,6 +427,7 @@ export default function ExperimentPage() {
         targetTolerance: r0.target_tolerance_uL ?? null,
         calibration_applied: !!r0.calibration_applied,
         calibration_offset: r0.calibration_offset || null,
+        device_correction_preview: deviceCorrectionPreview,
         v1: r0.v1,
         v2: r0.v2,
         v3: r0.v3,
@@ -612,6 +676,12 @@ export default function ExperimentPage() {
               </p>
             </div>
           </div>
+
+          <DeviceCorrectionPreview
+            preview={pred.device_correction_preview}
+            rawQ1={pred.q1}
+            rawQ2={pred.q2}
+          />
 
           <details className="technical-details">
             <summary>예측 상세 정보 보기</summary>
