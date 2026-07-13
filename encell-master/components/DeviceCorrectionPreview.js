@@ -1,165 +1,322 @@
-'use client'
+﻿'use client';
 
 function finiteNumber(value) {
-  const n = Number(value)
-  return Number.isFinite(n) ? n : null
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
 }
 
 function formatFlow(value, digits = 4) {
-  const n = finiteNumber(value)
-  return n == null ? '—' : `${n.toFixed(digits)} mL/min`
+  const n = finiteNumber(value);
+  return n == null ? "-" : `${n.toFixed(digits)} mL/min`;
 }
 
-function formatSigned(value, digits = 4) {
-  const n = finiteNumber(value)
-  if (n == null) return '—'
-  return `${n >= 0 ? '+' : ''}${n.toFixed(digits)} mL/min`
+function formatCorrection(value, digits = 4) {
+  const n = finiteNumber(value);
+  if (n == null) return "-";
+  const sign = n >= 0 ? "+" : "";
+  return `${sign}${n.toFixed(digits)} mL/min`;
 }
 
-function formatNumber(value, digits = 2) {
-  const n = finiteNumber(value)
-  return n == null ? '—' : n.toFixed(digits)
+function formatNumber(value, digits = 3) {
+  const n = finiteNumber(value);
+  return n == null ? "-" : n.toFixed(digits);
 }
 
-function getCorrectionValue(preview, channel) {
-  const direct = finiteNumber(preview?.[`${channel}_correction`])
-  if (direct != null) return direct
-  return finiteNumber(preview?.[`${channel}_correction`]?.correction_mL_min)
-}
-
-function getCandidate(preview, channel) {
-  return preview?.[`${channel}_candidate`] || (
-    typeof preview?.[`${channel}_correction`] === 'object'
-      ? preview?.[`${channel}_correction`]
-      : null
-  ) || {}
-}
-
-function statusLabel(status) {
-  if (status === 'candidate_preview') return 'Preview candidate'
-  if (status === 'candidate_caution') return 'Caution'
-  if (status === 'hold') return 'Hold'
-  return status || 'No candidate'
+function getStatus(candidate) {
+  return String(candidate?.status || "no_candidate");
 }
 
 function statusStyle(status) {
-  if (status === 'candidate_preview') {
-    return { background: 'rgba(46, 204, 113, 0.12)', borderColor: 'rgba(46, 204, 113, 0.35)', color: '#69d99a' }
+  if (status === "candidate_preview") {
+    return {
+      color: "#BBF7D0",
+      background: "rgba(34,197,94,0.16)",
+      border: "1px solid rgba(34,197,94,0.45)",
+    };
   }
-  if (status === 'candidate_caution') {
-    return { background: 'rgba(240, 160, 48, 0.12)', borderColor: 'rgba(240, 160, 48, 0.35)', color: '#f0b45a' }
+
+  if (status === "candidate_caution") {
+    return {
+      color: "#FDE68A",
+      background: "rgba(245,158,11,0.16)",
+      border: "1px solid rgba(245,158,11,0.45)",
+    };
   }
-  if (status === 'hold') {
-    return { background: 'rgba(231, 76, 60, 0.12)', borderColor: 'rgba(231, 76, 60, 0.35)', color: '#ff8b80' }
+
+  if (status === "hold") {
+    return {
+      color: "#FCA5A5",
+      background: "rgba(239,68,68,0.16)",
+      border: "1px solid rgba(239,68,68,0.45)",
+    };
   }
-  return { background: 'rgba(126, 179, 255, 0.10)', borderColor: 'rgba(126, 179, 255, 0.25)', color: '#9dbdf0' }
+
+  return {
+    color: "#CBD5E1",
+    background: "rgba(148,163,184,0.12)",
+    border: "1px solid rgba(148,163,184,0.35)",
+  };
 }
 
-function ChannelRow({ channel, label, raw, preview }) {
-  const candidate = getCandidate(preview, channel)
-  const status = candidate.status || ''
-  const correction = getCorrectionValue(preview, channel)
-  const previewValue = finiteNumber(preview?.[`${channel}_preview`])
-  const cv = finiteNumber(candidate.cv_actual_percent)
-  const loo = finiteNumber(candidate.mean_abs_error_corrected_loo)
+function ChannelRow({ label, rawValue, correction, previewValue, candidate }) {
+  const status = getStatus(candidate);
+  const isHold = status === "hold";
+  const hasPreview = finiteNumber(previewValue) != null;
 
   return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: '1fr 1fr 1fr 1.1fr',
-      gap: '12px',
-      alignItems: 'stretch',
-      padding: '12px',
-      border: '1px solid #1A2540',
-      borderRadius: '12px',
-      background: '#09101d',
-    }}>
-      <div>
-        <div style={{ color: '#4A6090', fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>{label}</div>
-        <div style={{ color: '#E8F0FF', fontWeight: 700 }}>{formatFlow(raw)}</div>
-        <div style={{ color: '#566b90', fontSize: '11px', marginTop: '2px' }}>current /predict</div>
-      </div>
-      <div>
-        <div style={{ color: '#4A6090', fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>Correction</div>
-        <div style={{ color: correction == null ? '#566b90' : '#7EB3FF', fontWeight: 700 }}>{formatSigned(correction)}</div>
-        <div style={{ color: '#566b90', fontSize: '11px', marginTop: '2px' }}>not applied</div>
-      </div>
-      <div>
-        <div style={{ color: '#4A6090', fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>Preview</div>
-        <div style={{ color: previewValue == null ? '#566b90' : '#C8D4F0', fontWeight: 700 }}>{formatFlow(previewValue)}</div>
-        <div style={{ color: '#566b90', fontSize: '11px', marginTop: '2px' }}>{previewValue == null ? 'hold / unavailable' : 'raw + correction'}</div>
-      </div>
-      <div>
-        <span style={{
-          display: 'inline-block',
-          border: '1px solid',
-          borderRadius: '999px',
-          padding: '3px 10px',
-          fontSize: '11px',
-          fontWeight: 700,
-          ...statusStyle(status),
-        }}>{statusLabel(status)}</span>
-        <div style={{ color: '#6D82A8', fontSize: '11px', marginTop: '8px' }}>
-          n={candidate.n ?? '—'} · CV={formatNumber(cv, 2)}% · LOO MAE={formatNumber(loo, 4)}
+    <div
+      style={{
+        border: "1px solid rgba(96,165,250,0.22)",
+        borderRadius: 14,
+        padding: "14px 16px",
+        background: "rgba(15,23,42,0.92)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          marginBottom: 12,
+        }}
+      >
+        <div style={{ color: "#E0F2FE", fontSize: 15, fontWeight: 800 }}>
+          {label}
         </div>
-      </div>
-    </div>
-  )
-}
-
-export default function DeviceCorrectionPreview({ preview, rawQ1, rawQ2 }) {
-  if (!preview || !preview.available) return null
-
-  const q1Status = getCandidate(preview, 'q1')?.status
-  const q2Status = getCandidate(preview, 'q2')?.status
-  const statuses = new Set([q1Status, q2Status].filter(Boolean))
-  const hasHold = statuses.has('hold')
-  const hasCaution = statuses.has('candidate_caution')
-
-  return (
-    <section style={{
-      marginTop: '16px',
-      padding: '16px',
-      borderRadius: '16px',
-      border: '1px solid rgba(126, 179, 255, 0.22)',
-      background: 'linear-gradient(135deg, rgba(26, 58, 122, 0.18), rgba(7, 12, 24, 0.92))',
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', alignItems: 'flex-start', marginBottom: '12px' }}>
-        <div>
-          <div style={{ color: '#7EB3FF', fontSize: '11px', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-            DEVICE correction preview
-          </div>
-          <h3 style={{ margin: '4px 0 4px', color: '#E8F0FF' }}>DEVICE_02 보정 미리보기</h3>
-          <p style={{ margin: 0, color: '#7B8DB0', fontSize: '13px', lineHeight: 1.5 }}>
-            기존 q1/q2는 바꾸지 않고, 후보 보정값을 적용했을 때의 참고값만 보여줍니다.
-          </p>
-        </div>
-        <span style={{
-          border: '1px solid rgba(126, 179, 255, 0.35)',
-          borderRadius: '999px',
-          padding: '5px 12px',
-          color: '#9dbdf0',
-          background: 'rgba(126, 179, 255, 0.10)',
-          fontSize: '11px',
-          fontWeight: 700,
-          whiteSpace: 'nowrap',
-        }}>
-          applied = {String(!!preview.applied)}
+        <span
+          style={{
+            ...statusStyle(status),
+            display: "inline-flex",
+            alignItems: "center",
+            borderRadius: 999,
+            padding: "4px 10px",
+            fontSize: 11,
+            fontWeight: 800,
+            letterSpacing: "0.04em",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {status}
         </span>
       </div>
 
-      <div style={{ display: 'grid', gap: '10px' }}>
-        <ChannelRow channel="q1" label="Q1 / T1" raw={rawQ1} preview={preview} />
-        <ChannelRow channel="q2" label="Q2 / T2" raw={rawQ2} preview={preview} />
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+          gap: 10,
+        }}
+      >
+        <div>
+          <div style={{ color: "#93C5FD", fontSize: 11, fontWeight: 700 }}>
+            Raw prediction
+          </div>
+          <div style={{ color: "#F8FAFC", fontSize: 15, fontWeight: 800 }}>
+            {formatFlow(rawValue)}
+          </div>
+        </div>
+
+        <div>
+          <div style={{ color: "#93C5FD", fontSize: 11, fontWeight: 700 }}>
+            Correction
+          </div>
+          <div style={{ color: correction == null ? "#94A3B8" : "#FDE68A", fontSize: 15, fontWeight: 800 }}>
+            {formatCorrection(correction)}
+          </div>
+        </div>
+
+        <div>
+          <div style={{ color: "#93C5FD", fontSize: 11, fontWeight: 700 }}>
+            Preview
+          </div>
+          <div style={{ color: hasPreview ? "#86EFAC" : "#94A3B8", fontSize: 15, fontWeight: 800 }}>
+            {formatFlow(previewValue)}
+          </div>
+        </div>
       </div>
 
-      <div style={{ marginTop: '12px', color: hasHold ? '#ffb0a8' : hasCaution ? '#f0c27a' : '#75d69a', fontSize: '12px', lineHeight: 1.5 }}>
+      <div
+        style={{
+          marginTop: 12,
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 8,
+          color: "#CBD5E1",
+          fontSize: 12,
+          fontWeight: 600,
+        }}
+      >
+        <span>n = {candidate?.n ?? "-"}</span>
+        <span>CV = {formatNumber(candidate?.cv_actual_percent, 2)}%</span>
+        <span>LOO MAE = {formatNumber(candidate?.mean_abs_error_corrected_loo, 4)}</span>
+        {isHold && <span style={{ color: "#FCA5A5" }}>Hold: 추가 검증 필요</span>}
+      </div>
+    </div>
+  );
+}
+
+export function DeviceCorrectionPreview(props) {
+  const prediction = props?.prediction || props?.result || props?.data || {};
+  const preview =
+    props?.preview ||
+    prediction?.device_correction_preview ||
+    props?.device_correction_preview ||
+    null;
+
+  if (!preview || preview.available !== true) {
+    return null;
+  }
+
+  const rawQ1 =
+    props?.rawQ1 ??
+    props?.q1 ??
+    prediction?.q1 ??
+    prediction?.q1_ml_min ??
+    null;
+
+  const rawQ2 =
+    props?.rawQ2 ??
+    props?.q2 ??
+    prediction?.q2 ??
+    prediction?.q2_ml_min ??
+    null;
+
+  const q1Candidate = preview.q1_candidate || preview.q1_correction_candidate || {};
+  const q2Candidate = preview.q2_candidate || preview.q2_correction_candidate || {};
+
+  const q1Status = getStatus(q1Candidate);
+  const q2Status = getStatus(q2Candidate);
+  const statuses = new Set([q1Status, q2Status]);
+
+  const hasHold = statuses.has("hold");
+  const hasCaution = statuses.has("candidate_caution");
+  const isApplied = preview.applied === true || preview.apply_to_predict === true;
+
+  return (
+    <section
+      style={{
+        marginTop: 24,
+        marginBottom: 24,
+        borderRadius: 18,
+        border: "1px solid rgba(59,130,246,0.35)",
+        background:
+          "linear-gradient(135deg, rgba(2,6,23,0.98), rgba(15,23,42,0.98))",
+        boxShadow: "0 18px 45px rgba(0,0,0,0.35)",
+        padding: 20,
+        color: "#F8FAFC",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 14,
+          marginBottom: 16,
+        }}
+      >
+        <div>
+          <div
+            style={{
+              color: "#60A5FA",
+              fontSize: 11,
+              fontWeight: 900,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              marginBottom: 6,
+            }}
+          >
+            DEVICE correction preview
+          </div>
+          <div style={{ color: "#FFFFFF", fontSize: 19, fontWeight: 900 }}>
+            DEVICE_02 보정 미리보기
+          </div>
+          <div style={{ color: "#CBD5E1", fontSize: 13, fontWeight: 600, marginTop: 5 }}>
+            실제 q1/q2 예측값은 바꾸지 않고, 후보 보정 적용 시 참고값만 보여줍니다.
+          </div>
+        </div>
+
+        <div
+          style={{
+            color: isApplied ? "#FCA5A5" : "#86EFAC",
+            background: isApplied ? "rgba(239,68,68,0.16)" : "rgba(34,197,94,0.16)",
+            border: isApplied ? "1px solid rgba(239,68,68,0.45)" : "1px solid rgba(34,197,94,0.45)",
+            borderRadius: 999,
+            padding: "6px 12px",
+            fontSize: 12,
+            fontWeight: 900,
+            whiteSpace: "nowrap",
+          }}
+        >
+          applied = {String(Boolean(isApplied))}
+        </div>
+      </div>
+
+      <div
+        style={{
+          color: "#BFDBFE",
+          fontSize: 13,
+          fontWeight: 700,
+          marginBottom: 14,
+        }}
+      >
+        device_id = {preview.device_id || "-"} / pressure_case = {preview.pressure_case || "-"}
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+          gap: 14,
+        }}
+      >
+        <ChannelRow
+          label="Q1 / T1"
+          rawValue={rawQ1}
+          correction={preview.q1_correction}
+          previewValue={preview.q1_preview}
+          candidate={q1Candidate}
+        />
+
+        <ChannelRow
+          label="Q2 / T2"
+          rawValue={rawQ2}
+          correction={preview.q2_correction}
+          previewValue={preview.q2_preview}
+          candidate={q2Candidate}
+        />
+      </div>
+
+      <div
+        style={{
+          marginTop: 16,
+          padding: "12px 14px",
+          borderRadius: 12,
+          background: hasHold
+            ? "rgba(127,29,29,0.28)"
+            : hasCaution
+              ? "rgba(120,53,15,0.28)"
+              : "rgba(20,83,45,0.25)",
+          border: hasHold
+            ? "1px solid rgba(248,113,113,0.42)"
+            : hasCaution
+              ? "1px solid rgba(251,191,36,0.42)"
+              : "1px solid rgba(74,222,128,0.38)",
+          color: hasHold ? "#FECACA" : hasCaution ? "#FDE68A" : "#BBF7D0",
+          fontSize: 13,
+          fontWeight: 750,
+          lineHeight: 1.55,
+        }}
+      >
         {hasHold
-          ? 'Hold 채널은 반복 검증이 부족해서 preview 값을 계산하지 않습니다. 추가 실험 후 승격 여부를 판단하세요.'
+          ? "일부 채널이 hold 상태입니다. hold 채널은 preview 값을 계산하지 않으며, 추가 실험 검증이 필요합니다."
           : hasCaution
-            ? 'Caution 후보가 포함되어 있습니다. 참고값으로만 보고 운영 적용 전 추가 검증이 필요합니다.'
-            : 'Candidate preview 조건입니다. 그래도 실제 /predict 값에는 아직 적용되지 않습니다.'}
+            ? "candidate_caution 조건입니다. 방향성은 있지만 운영 적용 전 추가 검증이 필요합니다."
+            : "candidate_preview 조건입니다. 현재는 실제 적용이 아닌 미리보기로만 표시됩니다."}
       </div>
     </section>
-  )
+  );
 }
+
+export default DeviceCorrectionPreview;
