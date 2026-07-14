@@ -11,7 +11,10 @@ export const supabase = getSupabase()
 
 export async function saveLog(payload) {
   const sb = supabase
-  if (!sb) throw new Error('Supabase가 설정되지 않았습니다')
+  if (!sb) {
+    console.info('Supabase 미설정 — 로컬 백엔드에만 저장됩니다')
+    return
+  }
   const { error } = await sb.from('experimental_logs').insert([payload])
   if (error) throw new Error(error.message)
 }
@@ -35,7 +38,10 @@ const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
 async function req(method, path, body) {
   const res = await fetch(BASE + path, {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': '1',
+    },
     ...(body !== undefined && { body: JSON.stringify(body) }),
   })
   if (!res.ok) throw new Error(await res.text())
@@ -46,10 +52,13 @@ export const api = {
   get: async (path, params = {}) => {
     const url = new URL(BASE + path)
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
-    const res = await fetch(url)
+    const res = await fetch(url, {
+      headers: { 'ngrok-skip-browser-warning': '1' },
+    })
     if (!res.ok) throw new Error(await res.text())
     return res.json()
   },
   post:   (path, body) => req('POST', path, body),
+  put:    (path, body) => req('PUT',  path, body),
   delete: (path)       => req('DELETE', path),
 }

@@ -678,10 +678,10 @@ export default function ExperimentPage() {
           </div>
 
           <DeviceCorrectionPreview
-  		preview={pred.device_correction_preview}
-  		rawQ1={pred.q1}
-  		rawQ2={pred.q2}
-	/>
+            preview={pred.device_correction_preview}
+            rawQ1={pred.q1}
+            rawQ2={pred.q2}
+          />
 
           <details className="technical-details">
             <summary>예측 상세 정보 보기</summary>

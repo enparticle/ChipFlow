@@ -1,28 +1,23 @@
 'use client'
-import { useCountUp } from '@/hooks/useCountUp'
 
-export default function KpiCard({ label, valueUL, accent, delay = 0 }) {
-  const mL = valueUL != null ? valueUL / 1000 : null
-  const animated = useCountUp(mL, 4, 680)
-
-  const accentStyle = {
-    t1:  'linear-gradient(90deg,#3B82F6,#22D3EE)',
-    t2:  'linear-gradient(90deg,#34D399,#6EE7B7)',
-    tot: 'linear-gradient(90deg,#424D6B,#8B9AC8)',
-  }
+export default function KpiCard({ label, valueUL, accent = 'tot', helper }) {
+  const value = Number(valueUL)
+  const hasValue = Number.isFinite(value)
+  const ml = hasValue ? value / 1000 : null
 
   return (
-    <div className="kpi-item" style={{ animationDelay: `${delay}ms` }}>
-      <div className="kpi-accent" style={{ background: accentStyle[accent] }} />
-      <div className="kpi-label">{label}</div>
-      <div>
-        <span className={`kpi-val${animated === null ? ' empty' : ''}`}>
-          {animated !== null ? animated.toFixed(4) : '—'}
-        </span>
-        {animated !== null && <span className="kpi-unit"> mL</span>}
+    <div className={`friendly-kpi-card ${accent}`}>
+      <div className="friendly-kpi-top">
+        <span className={`friendly-kpi-dot ${accent}`} />
+        <span>{label}</span>
       </div>
-      <div className="kpi-sub">
-        {valueUL != null ? `${valueUL.toFixed(1)} µL` : ''}
+      <div className="friendly-kpi-value">
+        <strong>{ml == null ? '—' : ml.toFixed(4)}</strong>
+        {ml != null && <span>mL</span>}
+      </div>
+      <div className="friendly-kpi-helper">
+        {helper && <span>{helper}</span>}
+        {hasValue && <b>{value.toFixed(1)} µL</b>}
       </div>
     </div>
   )

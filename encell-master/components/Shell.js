@@ -1,129 +1,233 @@
 'use client'
-import { useState, useEffect, useCallback, createContext, useContext } from 'react'
+
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import ParticleCanvas from './ParticleCanvas'
 import { api } from '@/lib/client'
+import { BRANCH } from '@/lib/constants'
 
 const AppCtx = createContext(null)
 export const useApp = () => useContext(AppCtx)
 
 const NAV = [
-  { href: '/',             icon: '⚗', label: '실험 및 기록' },
-  { href: '/inverse',      icon: '⇄', label: '역해석' },
-  { href: '/calibration',  icon: '⊕', label: '보정' },
-  { href: '/landscape',    icon: '◈', label: '3D 분석' },
+  { href: '/', icon: '◎', label: '목표 유량 → 압력', subtitle: '주요 기능' },
+  { href: '/experiment', icon: '◉', label: '압력 → 유량·실험 기록' },
+  { href: '/landscape', icon: '⌁', label: '유량 지도' },
+  { href: '/calibration', icon: '⚙', label: '보정 관리', admin: true },
+  { href: '/manage', icon: '▣', label: '장비·로트 관리', admin: true },
 ]
 
-export default function Shell({ children }) {
-  const [chips, setChips]      = useState([])
-  const [chip,  setChip]       = useState(null)
-  const [branch, setBranch]    = useState('EW')
-  const [dropOpen, setDrop]    = useState(false)
-  const pathname = usePathname()
+const PAGE_COPY = {
+  '/': ['목표 유량으로 압력 계산', '원하는 유량과 시간에 맞는 P1·P2 압력을 계산합니다.'],
+  '/inverse': ['목표 유량으로 압력 계산', '원하는 유량과 시간에 맞는 P1·P2 압력을 계산합니다.'],
+  '/experiment': ['압력으로 유량 예측·실험 기록', '압력을 입력해 예상 유량을 확인하고 실측 결과를 저장합니다.'],
+  '/landscape': ['유량 지도', '압력 조건에 따른 유량 변화를 확인합니다.'],
+  '/calibration': ['보정 관리', '승인된 보정값과 적용 대기 후보를 관리합니다.'],
+  '/manage': ['장비·로트 관리', '실험에 사용할 장비와 카트리지 로트를 관리합니다.'],
+}
 
-  const loadChips = useCallback(async () => {
-    try {
-      const data = await api.get('/chips')
-      setChips(data)
-      if (data.length) setChip(c => c ?? data[0])
-    } catch (e) { console.error('chip load:', e.message) }
-  }, [])
-
-  useEffect(() => { loadChips() }, [loadChips])
-
-  const showBranch = ['/', '/inverse'].includes(pathname)
+function Dropdown({ label, items, selected, onSelect, idKey, nameKey, loading }) {
+  const [open, setOpen] = useState(false)
+  const selectedText = selected?.[nameKey] || selected?.[idKey]
 
   return (
-    <AppCtx.Provider value={{ chip, chips, branch, setBranch, loadChips }}>
-      <div className="shell">
-        <ParticleCanvas />
+    <div className="setup-dropdown">
+      <label>{label}</label>
+      <button
+        type="button"
+        className={`setup-select${open ? ' open' : ''}`}
+        onClick={() => setOpen(v => !v)}
+        aria-expanded={open}
+      >
+        <span className={`setup-status-dot${selected ? ' selected' : ''}`} />
+        <span className="setup-select-text">{loading ? '불러오는 중…' : selectedText || '선택하세요'}</span>
+        <span className="setup-chevron">⌄</span>
+      </button>
 
-        {/* ── Sidebar ── */}
-        <aside className="sidebar">
+      {open && (
+        <div className="setup-options">
+          {items.length === 0 ? (
+            <div className="setup-option empty">등록된 항목이 없습니다.</div>
+          ) : items.map(item => (
+            <button
+              type="button"
+              key={item[idKey]}
+              className={`setup-option${selected?.[idKey] === item[idKey] ? ' selected' : ''}`}
+              onClick={() => {
+                onSelect(item)
+                setOpen(false)
+              }}
+            >
+              <strong>{item[nameKey] || item[idKey]}</strong>
+              {item[nameKey] && <span>{item[idKey]}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function Shell({ children }) {
+  const [devices, setDevices] = useState([])
+  const [lots, setLots] = useState([])
+  const [device, setDevice] = useState(null)
+  const [lot, setLot] = useState(null)
+  const [branch, setBranch] = useState('EW')
+  const [loadingSetup, setLoadingSetup] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const pathname = usePathname()
+
+  const loadAll = useCallback(async () => {
+    setLoadingSetup(true)
+    setLoadError('')
+    try {
+      const [devs, ls] = await Promise.all([api.get('/devices'), api.get('/lots')])
+      setDevices(Array.isArray(devs) ? devs : [])
+      setLots(Array.isArray(ls) ? ls : [])
+      if (Array.isArray(devs) && devs.length) setDevice(current => current ?? devs[0])
+      if (Array.isArray(ls) && ls.length) setLot(current => current ?? ls[0])
+    } catch (e) {
+      console.error('setup load failed:', e.message)
+      setLoadError('백엔드에 연결하지 못했습니다.')
+    } finally {
+      setLoadingSetup(false)
+    }
+  }, [])
+
+  useEffect(() => { loadAll() }, [loadAll])
+  useEffect(() => { setMobileOpen(false) }, [pathname])
+
+  const chip = lot ? {
+    chip_id: lot.lot_id,
+    display_name: lot.display_name,
+    k1: lot.k1,
+    k2: lot.k2,
+    kout: lot.kout,
+    alpha: lot.alpha,
+    c_eth: lot.c_eth,
+    c_wat: lot.c_wat,
+    loss_const: lot.loss_const,
+    p_offset: lot.p_offset_lot,
+  } : null
+
+  const [pageTitle, pageSubtitle] = PAGE_COPY[pathname] || ['enCELL Master', '미세유체 실험 지원 시스템']
+  const showTopDirection = false
+
+  return (
+    <AppCtx.Provider value={{
+      chip,
+      device,
+      lot,
+      devices,
+      lots,
+      branch,
+      setBranch,
+      loadAll,
+      loadChips: loadAll,
+      loadingSetup,
+      loadError,
+    }}>
+      <div className="shell">
+        {mobileOpen && <button type="button" className="mobile-overlay" aria-label="메뉴 닫기" onClick={() => setMobileOpen(false)} />}
+
+        <aside className={`sidebar${mobileOpen ? ' mobile-open' : ''}`}>
           <div className="sb-logo">
-            <div className="sb-icon">⬡</div>
+            <div className="sb-icon">e</div>
             <div>
-              <div className="sb-name">enCELL</div>
-              <div className="sb-sub">MASTER SYSTEM</div>
+              <div className="sb-name">enCELL Master</div>
+              <div className="sb-sub">실험 예측·기록 시스템</div>
+            </div>
+            <button type="button" className="sidebar-close" aria-label="메뉴 닫기" onClick={() => setMobileOpen(false)}>×</button>
+          </div>
+
+          <div className="sidebar-section-title">실험 준비</div>
+          <div className="sidebar-setup">
+            <Dropdown
+              label="사용 장비"
+              items={devices}
+              selected={device}
+              onSelect={setDevice}
+              idKey="device_id"
+              nameKey="display_name"
+              loading={loadingSetup}
+            />
+            <Dropdown
+              label="카트리지 로트"
+              items={lots}
+              selected={lot}
+              onSelect={setLot}
+              idKey="lot_id"
+              nameKey="display_name"
+              loading={loadingSetup}
+            />
+
+            <div className={`backend-state${loadError ? ' error' : ''}`}>
+              <span />
+              {loadingSetup ? '연결 확인 중' : loadError || '백엔드 연결됨'}
+              <button type="button" onClick={loadAll}>새로고침</button>
             </div>
           </div>
 
-          <div className="sb-sec">Active Chip</div>
-          <div className="chip-wrap">
-            <button className="chip-btn" onClick={() => setDrop(o => !o)}>
-              <span className="chip-dot" />
-              <span style={{ fontSize: 12 }}>{chip?.display_name || chip?.chip_id || '로딩 중…'}</span>
-              <span style={{ color: 'var(--t3)', fontSize: 11, marginLeft: 'auto' }}>▾</span>
-            </button>
-            {dropOpen && (
-              <div className="chip-dd">
-                {chips.map(c => (
-                  <div key={c.chip_id} className="chip-opt"
-                    onClick={() => { setChip(c); setDrop(false) }}>
-                    {c.display_name || c.chip_id}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="sb-sec">Navigation</div>
+          <div className="sidebar-section-title">메뉴</div>
           <nav className="sb-nav">
-            {NAV.map(({ href, icon, label }) => (
-              <Link key={href} href={href}
-                className={`nav-item${pathname === href ? ' active' : ''}`}>
-                <span className="nav-ic">{icon}</span>{label}
+            {NAV.map(({ href, icon, label, admin }) => (
+              <Link
+                key={href}
+                href={href}
+                className={`nav-item${pathname === href ? ' active' : ''}`}
+              >
+                <span className="nav-ic" aria-hidden="true">{icon}</span>
+                <span className="nav-copy">
+                  <strong>{label}</strong>
+                  {admin && <small>관리자</small>}
+                </span>
               </Link>
             ))}
           </nav>
 
-          {chip && (
-            <div className="params-box">
-              <div className="params-title">Parameters</div>
-              {[['K1', chip.k1?.toFixed(4)], ['K2', chip.k2?.toFixed(4)],
-                ['Kout', chip.kout?.toFixed(4)], ['Alpha', chip.alpha?.toFixed(4)],
-                ['C_eth', chip.c_eth?.toFixed(6)], ['C_wat', chip.c_wat?.toFixed(6)]
-              ].map(([k, v]) => (
-                <div className="p-row" key={k}>
-                  <span className="p-k">{k}</span>
-                  <span className="p-v">{v ?? '—'}</span>
-                </div>
-              ))}
-              <button className="sb-btn" onClick={loadChips}>↻ 새로고침</button>
-            </div>
+          {lot && (
+            <details className="sidebar-details">
+              <summary>선택 정보 보기</summary>
+              <div className="sidebar-details-body">
+                <div><span>로트</span><strong>{lot.lot_id}</strong></div>
+                <div><span>장비</span><strong>{device?.device_id || '—'}</strong></div>
+                <div><span>K1 / K2</span><strong>{lot.k1?.toFixed(2) ?? '—'} / {lot.k2?.toFixed(2) ?? '—'}</strong></div>
+                <div><span>Kout</span><strong>{lot.kout?.toFixed(2) ?? '—'}</strong></div>
+              </div>
+            </details>
           )}
         </aside>
 
-        {/* ── Main ── */}
         <div className="main">
-          <div className="topbar">
-            <div>
-              <div className="page-h">{NAV.find(n => n.href === pathname)?.label ?? 'enCELL'}</div>
-              <div className="page-s">
-                {pathname === '/'            && 'EXPERIMENT · PREDICT · RECORD'}
-                {pathname === '/inverse'     && 'INVERSE SOLVE · PRESSURE FINDER'}
-                {pathname === '/calibration' && 'CALIBRATION · PARAMETERS'}
-                {pathname === '/landscape'   && 'BATCH PREDICT · VISUALIZATION'}
+          <header className="topbar">
+            <div className="topbar-title-wrap">
+              <button type="button" className="mobile-menu-button" aria-label="메뉴 열기" onClick={() => setMobileOpen(true)}>☰</button>
+              <div>
+                <div className="page-h">{pageTitle}</div>
+                <div className="page-s">{pageSubtitle}</div>
               </div>
             </div>
-            {showBranch && (
-              <div className="br-wrap">
-                <div className="br-toggle">
-                  {['EW', 'WE'].map(b => (
-                    <button key={b} className={`btab${branch === b ? ' active' : ''}`}
-                      onClick={() => setBranch(b)}>{b}</button>
-                  ))}
-                </div>
-                <div className="br-desc">
-                  T1 = <b>{branch === 'EW' ? 'Ethanol' : 'Water'}</b>
-                  {' · '}
-                  T2 = <b>{branch === 'EW' ? 'Water' : 'Ethanol'}</b>
-                </div>
+
+            {showTopDirection && (
+              <div className="top-direction-control">
+                {Object.entries(BRANCH).map(([code, item]) => (
+                  <button
+                    type="button"
+                    key={code}
+                    className={branch === code ? 'active' : ''}
+                    onClick={() => setBranch(code)}
+                  >
+                    <strong>{item.direction}</strong>
+                    <span>{code}</span>
+                  </button>
+                ))}
               </div>
             )}
-          </div>
-          <div className="page-scroll">{children}</div>
+          </header>
+
+          <main className="page-scroll">{children}</main>
         </div>
       </div>
     </AppCtx.Provider>
